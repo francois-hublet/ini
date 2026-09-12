@@ -35,6 +35,7 @@
 \newtheorem{theorem}{Theorem}
 \newtheorem{lemma}[theorem]{Lemma}
 \newtheorem{definition}[theorem]{Definition}
+\newtheorem{problem}[theorem]{Problem}
 
 %% Use the option review to obtain double line spacing
 %% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
@@ -94,7 +95,7 @@
 %%             country={}}
 %% \fntext[label3]{}
 
-\title{Interactive Non-Interference Does Not (Always) Compose}
+\title{Interactive Noninterference Does Not (Always) Compose}
 
 %% use optional labels to link authors explicitly to addresses:
 %% \author[label1,label2]{}
@@ -120,12 +121,13 @@
             postcode={8051},
             country={Switzerland}}
 \begin{abstract}
-  We study the notion of Interactive Non-Interference (INI) as introduced by
+  We study the notion of Interactive Noninterference (INI) as introduced by
   O'Neill et al.~\cite{ONeill2006} and Rafnsson et al.~\cite{Rafnsson2012}.
   We show that, unlike claimed in previous work, INI is generally not compositional when
   programs are non-deterministic. To this end, we exhibit elementary attacks on INI that cover
   both blocking and non-blocking communication between interactive programs. Then, we
-  prove that compositionality does indeed hold when we require programs to be deterministic.    
+  prove that compositionality does indeed hold when we require programs to be deterministic.
+  All definitions and results of this paper have been formally verified in the Lean 4 proof assistant.
 \end{abstract}
 
 %%Graphical abstract
@@ -141,12 +143,12 @@
 
 \begin{keyword}
 %% keywords here, in the form: keyword \sep keyword
-keyword one \sep keyword two
+non-interference \sep interactive programs \sep compositionality
 %% PACS codes here, in the form: \PACS code \sep code
-\PACS 0000 \sep 1111
+%\PACS 0000 \sep 1111
 %% MSC codes here, in the form: \MSC code \sep code
 %% or \MSC[2008] code \sep code (2000 is the default)
-\MSC 0000 \sep 1111
+%\MSC 0000 \sep 1111
 \end{keyword}
 
 \end{frontmatter}
@@ -174,6 +176,9 @@ keyword one \sep keyword two
 \newcommand{\pComp}[2]{#1 \mid #2}
 \newcommand{\Lattice}{\mathcal{L}}
 \renewcommand{\doteq}{\overset{.}{=}}
+\newcommand{\Pow}[1]{\mathcal{P}(#1)}
+%% Pointer to the accompanying Lean 4 development.
+\newcommand{\leanref}[1]{\hfill\textnormal{\small\textsf{[Lean:\,\texttt{#1}]}}}
 
 
 % TODO: Randomness vs. Nondeterminism
@@ -181,10 +186,10 @@ keyword one \sep keyword two
 
 \emph{Interactive programs} were introduced by O'Neill, Clarkson, and Chong~\cite{ONeill2006} as a model
 for imperative programs that interact with users through inputs and outputs while updating
-their state. With interactive programs, users can adapt their outputs depending on previously
-seen inputs in a malicious way, which poses specific challenges for information-flow control.
-To illustrate these challenges, O'Neill et al.~\cite{ONeill2006} use a program
-similar to the following, where $\mid$ denotes non-deterministic choice and $\oplus$ stands for `exclusive or':
+their state. In interactive programs, users can adapt their outputs depending on previously
+seen inputs in a malicious way, which provides additional avenues for information leakage.
+To illustrate these challenges, O'Neill et al.~\cite{ONeill2006} use the following
+example, where $\mid$ denotes non-deterministic choice and $\oplus$ stands for `exclusive or':
 \begin{align*}
   P_0=~&(\pComp{\pAssign{x}{0}}{\pAssign{x}{1}});\\
   &\pOut{H}{x};\\
@@ -194,7 +199,7 @@ similar to the following, where $\mid$ denotes non-deterministic choice and $\op
 At first glance, program $P_0$ does not seem to propagate information from high to low channels, as
 the high information input from channel $H$ is \emph{xor}ed with the random value in $x$ before being
 output to $L$. However, attacks become possible when interaction is considered. Suppose that Hillary,
-who can read and write on channel $H$, wants to send a bit of information $b$ to Hillary, who can read
+who can read and write on channel $H$, wants to send a bit of information $b$ to Laura, who can read only
 on channel $L$. Hillary can simply observe the bit $x$ and set $y$ to $b \oplus x$; then Laura will read
 $x \oplus y = x \oplus (b \oplus x) = b$ on $L$, which is exactly the bit Hillary wanted to transmit.
 
@@ -202,64 +207,234 @@ To guarantee that no information flows from high to low channels in interactive 
 of interactive noninterference~\cite{ONeill2006} (INI) has been introduced. INI relies on \emph{strategies}
 that encode how users with different clearance levels provide new inputs depending on the outputs
 they have been able to observe up to the present. In the above example, INI is violated because
-there exist two strategies differing only on high channels (the one where Hillary wants to transmit $1$ and the one
-where Hillary wants to transmit $0$) that must produce different outputs on low channels.
+there exist two strategies differing only on the high channel (the one where Hillary transmits $1$ and the one she transmits $0$) that produce different outputs on the low channel.
 
-This initial study on interactive programs has given rise to a number of follow-ups works.
-Clark and Hunt~\cite{Clark2008} have shown that, in the case of \emph{deterministic} interactive
+This initial study on interactive programs gave rise to a number of follow-up works.
+Clark and Hunt~\cite{Clark2008} showed that, in the case of \emph{deterministic} interactive
 programs, considering general strategies was not needed. They showed that those programs satisfying INI
-where exactly those satisfying nonintereference for \emph{stream strategies} where the sequence of user
-inputs is set ahead of time independently of the program's outputs. Later, Rafnsson, Hedin, and Sabelfeld
+were exactly those satisfying noninterference for \emph{stream strategies} where the sequence of user
+inputs is fixed ahead of time independently of any outputs. Later, Rafnsson, Hedin, and Sabelfeld
 reconsidered the general case~\cite{Rafnsson2012}, revisiting it in two different directions. First, they
 extended O'Neill et al.'s model to support \emph{non-total} strategies in which channels may not always
-contain data ready to be input, and for which the \emph{presence} and \emph{value} on data transmitted on
-channels may have different security levels. In their model, a channel has levels, e.g., $H^L$, if the
-presence of an input on it is public, but the value of the input is private. When a program tries to perform
-an input on a channel that contains no input, the execution is blocked, which may induce a new information
-channel. Second, Rafnsson et al. studied the composition of INI. They claimed that INI on their two-level model
+contain data ready to be input, and for which the \emph{presence} and \emph{value} of data on a given channel
+may have different security levels. In their model, a channel has levels, e.g., $H^L$, if the
+presence of an input on it is public, but the value of the input is private.
+Second, Rafnsson et al. studied the compositionality of INI. They claimed that INI on their two-level model
 was compositional for both deterministic and non-deterministic programs, and provided a type system to statically
-check in INI in imperative programs.
+check for INI in imperative programs.
 
 For interactive non-interference to be useful in real-world software systems, compositionality is arguably
-a key property. Indeed, most privacy-sensitive systems that interact with users especially in the web
+a key property. Indeed, most privacy-sensitive systems that interact with users
 are component-based, e.g., because they are multi-tier or run on a microservice architecture.
-In general, being able to check non-interference component-wise rather than globally results in a significant
-decrease in complexity and strong modularity benefits.
+In general, being able to check for non-interference component-wise rather than globally results
+in a significant reduction in the complexity of the verification process.
 Even more critically, it might be the only practical approach when dealing with systems that
 combine components from multiple code providers that may not be willing to share their sources.
 
 Unfortunately, and as we will show in the first part of this paper, the compositionality property claimed
-by Rafnsson et al. for INI~\cite[Theorem V.1]{Rafnsson2012} does not hold for general programs. Attacks against
+by Rafnsson et al. for INI~\cite[Theorem V.1]{Rafnsson2012} does not hold. Attacks against
 INI exist for non-deterministic programs in both Rafnsson et al.'s non-total (blocking) setup and the original
 total (non-blocking) setup by O'Neill et al.~\cite{ONeill2006}, who did not make any compositionality claims.
-The compositionality proofs provided in the original paper~\cite{Rafnsson2012} as well as three other related
-publications~\cite{Rafnsson2014,Greiner2016,Greiner2018} are flawed. However, we show that the compositionality of INI
+The compositionality proofs provided in the original paper~\cite{Rafnsson2012} contains an error. However, we show that the compositionality of INI
 can be recovered for deterministic programs.
 
 After reviewing interactive noninterference as introduced by O'Neill et al. and Rafnsson et al.~\cite{ONeill2006,Rafnsson2012}
 (Section~\ref{sec:preliminaries}), we make the following contributions:
 \begin{itemize}
 \item We show that INI is non-compositional in both total and non-total setups by exhibiting elementary
-  attacks. We also briefly review the flawed proofs presented in previous work and identify the mistakes they contain.
+  attacks. We also briefly review the flawed proof presented in previous work and identify the mistake it contains.
   (Section~\ref{sec:non-compositionality})
 \item We show that INI is compositional when all programs are deterministic (Section~\ref{sec:deterministic}).
+\item We formalize the entire development---the model of Section~\ref{sec:preliminaries}, the two
+  counterexamples of Section~\ref{sec:non-compositionality}, and the compositionality results of
+  Section~\ref{sec:deterministic}---in the Lean 4 proof assistant, and machine-check all of its
+  proofs.\footnote{The accompanying development consists of the file \texttt{InteractiveNI.lean} and
+  the directory \texttt{InteractiveNI/}; it is self-contained (it depends on no library beyond Lean's
+  core), contains no unproved assumption, and relies only on Lean's three standard axioms
+  (\texttt{propext}, \texttt{Classical.choice}, \texttt{Quot.sound}). Each definition, lemma and
+  theorem below is annotated with the name of its Lean counterpart.}
 \end{itemize}
 
-\section{Interactive Non-Interference}
+\section{Interactive Noninterference}
 
 \label{sec:preliminaries}
 
 \newcommand{\Strat}{\mathbf{Strat}}
+\newcommand{\StratT}{\mathbf{Strat}_{\mathrm{T}}}
 \newcommand{\StratNI}{\mathbf{Strat}\text{-}\mathrm{NI}}
-\newcommand{\StratNINI}{\mathbf{Strat}\text{-}\mathrm{NINI}}
-\newcommand{\StratTNI}{\mathbf{Strat}_\mathrm{T}\text{-}\mathrm{NI}}
+\newcommand{\StratTNI}{\mathbf{Strat}_{\mathrm{T}}\text{-}\mathrm{NI}}
+\newcommand{\States}{\mathbb{S}}
+\newcommand{\IO}{\mathrm{IO}}
+\newcommand{\Channels}{\mathbb{C}}
+\newcommand{\Values}{\mathbb{V}}
+\newcommand{\Traces}{\mathbb{T}}
+
+In this section, we recall the definitions of interactive programs, strategies, and interactive non-interference (INI) as presented by Rafnsson et al.~\cite{Rafnsson2012}. All notions introduced below are formalized in \texttt{InteractiveNI/Basic.lean}, respectively as \texttt{Sec} (security context), \texttt{Reach} ($\xrightarrow{t}$), \texttt{Deterministic}, \texttt{parStep} and \texttt{parStepFam} (composition), \texttt{proj} and \texttt{teq} ($\pi_\ell$ and $=_\ell$), \texttt{Strategy}, \texttt{seq} ($=_\ell$ on strategies), \texttt{consistent}, \texttt{produces} ($\vDash$), and \texttt{INI}.
+
+\subsection{Interactive programs}
+
+In the following, we fix a set $\Channels$ of channel symbols and a set $\Values$ of values.
+Variables $\alpha, \alpha', \dots$ denote channels and $v, v', \dots$ denote values.
+Each channel $\alpha$ is mapped to a pair of security levels $(\ell_2,\ell_1)$ taken from a
+semilattice $(\Lattice, \sqsubseteq)$ through a mapping $\gamma : \Channels \rightarrow \Lattice^2$. This pair is also denoted $\ell_1^{\ell_2}$. The superscripted level $\ell_2$ captures
+the confidentiality of the \emph{presence} of a message on $\alpha$, while level 
+$\ell_1$ captures the confidentiality of the \emph{values} of messages on $\alpha$.
+
+We fix a set $\IO$ of \emph{input-output labels} containing all labels of the form
+$\alpha ? v$ (denoting input of $v$ on $\alpha$), $\alpha ! v$ (denoting output of $v$ to $\alpha$), or $\tau$ (denoting no input or output). Using this set, our model of interactive programs, called
+\emph{input-output labeled transition systems} or IOLTS~\cite{Rafnsson2012}, is defined as follows:
+
+\begin{definition}
+  An \emph{input-output labeled transition system} (IOLTS) is a pair $(\States, \rightarrow)$ such that:
+  \begin{enumerate}[(i)]
+  \item $\States$ is a set of states,
+  \item $\rightarrow \subseteq \States \times \IO \times \States$ is a transition system,
+  \item $(\States, \rightarrow)$ is \emph{input-neutral}, i.e.,
+  \begin{align*}
+    \forall s, s' \in \States, \alpha, v.\, s \xrightarrow{\alpha ? v} s' \Longrightarrow (\forall v'.\,\exists s''.\,s \xrightarrow{\alpha ? v'} s'')
+  \end{align*}
+  \end{enumerate}
+\end{definition}
+
+The setup considered by O'Neill et al.~\cite{ONeill2006} is similar but has only one level
+per channel, corresponding to the value level above. As a result, the presence of messages on a
+channel is always considered public. This is consistent with the authors' assumption that
+all channels can be read from at all times.
+
+An IOLTS is considered deterministic when in any state, the next state only depends on the
+current state and, possibly, on a single input on a fixed channel.
+
+\begin{definition}
+  An IOLTS $(\States, \rightarrow)$ is deterministic iff, whenever $s \xrightarrow{a} s'$ and $s \xrightarrow{a'} s'$:
+  \begin{enumerate}[(i)]
+  \item If $a \neq a'$, then $a = \alpha ? v$ and $a' = \alpha ? v'$ for some $\alpha,v,v'$; and
+  \item If $a = a'$, then $s = s'$.
+  \end{enumerate}
+\end{definition}
+
+When performing a sequence of consecutive transitions
+$s_1 \xrightarrow{a_1} s_2, s_2 \xrightarrow{a_2} s_3, \dots, s_{k-1} \xrightarrow{a_{k-1}} s_k$,
+an IOLTS generates a \emph{trace} $t = \overline{a_1 . \cdots . a_{k-1}}$, where for any trace
+$\sigma$, we denote by $\overline{\sigma}$ the trace obtained by erasing all instances of
+$\tau$ from $\sigma$. The corresponding execution is
+denoted by $s_1 \xrightarrow{t} s_k$, the empty trace by $\varepsilon$, and the set of traces
+is denoted by $\Traces$.
+In the following, variables $t, t', t_1, t_2, \dots$ implicitly range over $\Traces$.
+
+Two traces are called \emph{equivalent} with respect to a level $\ell \in \Lattice$
+(`$\ell$-equivalent') when they differ only by the presence of inputs or outputs on channels with
+a presence level $\ell_2 \not\sqsubseteq \ell$, and by the value of inputs or outputs on channels
+with a value level $\ell_1 \not\sqsubseteq \ell$. Intuitively, an agent that is only able to
+observe the presence of inputs or outputs on channels with presence level $\sqsubseteq \ell$ and the value of
+inputs or outputs on channels with value level $\sqsubseteq \ell$ should not be able to distinguish the two
+traces. Formally:
+\begin{definition}
+  For any $\ell \in \Lattice$, two traces $t,t'$ are $\ell$-equivalent, denoted $t =_\ell t'$, iff
+  $\pi_\ell(t) = \pi_\ell(t')$ where $\pi$ is defined inductively as follows:
+  \begin{align*}
+    \pi_\ell(\varepsilon) &=  \varepsilon \\
+    \pi_\ell(\alpha : v.t) &= \pi_\ell(t) & & \text{if } \ell_1^{\ell_2}:=\gamma(\alpha), \ell_2 \not\sqsubseteq \ell\\
+    \pi_\ell(\alpha : v.t) &= \alpha : \square. \pi_\ell(t) & & \text{if } \ell_1^{\ell_2}:=\gamma(\alpha), \ell_1 \not\sqsubseteq \ell, \ell_2 \sqsubseteq \ell\\
+    \pi_\ell(\alpha : v.t) &= \alpha : v . \pi_\ell(t) & & \text{if } \ell_1^{\ell_2}:=\gamma(\alpha), \ell_1\sqsubseteq \ell,\ell_2 \sqsubseteq \ell,
+  \end{align*}
+  where $: \in \{?,!\}$.
+\end{definition}
+
+Composition of a family of IOLTS is defined naturally as arbitrary interleaving of component-wise
+steps on the product of the IOLTS's states.
+
+\begin{definition}
+  Let $I$ be a set of indices. The \emph{parallel composition} (short \emph{composition}) of a family of IOLTS $(\States_i,\rightarrow_i)_{i \in I}$ is the IOLTS $(\bigotimes_{i \in I} \States_i, \rightarrow_I)$ where, for all $\mathbf{s},\mathbf{s'} \in\bigotimes_{i \in I} \States_i$,
+  \begin{align*}
+\mathbf{s} \xrightarrow{a}_I \mathbf{s'} \Longleftrightarrow \exists i \in I.~\mathbf{s}_i \xrightarrow{a}_i \mathbf{s'}_i \land (\forall j \in I \setminus \{i\}.~\mathbf{s'}_j=\mathbf{s}_j).
+  \end{align*}
+\end{definition}
+
+In the rest of this paper, as in previous work,
+a state $(s_1,s_2)$ ($(s_i)_{i \in I}$, resp.) of an IOLTS constructed
+via parallel composition will be denoted $s_1 \parallel s_2$ ($\parallel_{i \in I} s_i$, resp.).
+
+\subsection{Strategies}
+
+The notion of \emph{strategies} was introduced by Wittbold and Johnson~\cite{Wittbold1990}
+to model nondeterminism in (user) input behavior. It was later adapted by O'Neill et
+al.~\cite{ONeill2006} to the case of interactive programs. Intuitively, given a channel $\alpha$
+and a trace $t$ capturing the history of the IOLTS's execution until the present time, a strategy
+$\omega$ returns a set of inputs $\omega_\alpha(t)$ that can be read by the program from channel $\alpha$. The presence and value of these inputs may depend only
+on past inputs and outputs \emph{that are visible to users} that can read and write on channel
+$\alpha$ in accordance with the channel's levels. Formally:
+
+
+\begin{definition}
+  A \emph{strategy} is a collection of functions $\omega_\alpha: \Traces \rightarrow \Pow{\Values}$ indexed by $a \in \Channels$ such that, for all $\alpha$ and $\ell_1^{\ell_2} := \gamma(\alpha)$, we have
+  \begin{align*}
+    \forall t_1, t_2.\, t_1 =_{\ell_1} t_2 &\Longrightarrow \omega_\alpha(t_1) = \omega_\alpha(t_2)\\
+    \forall t_1, t_2.\, t_1 =_{\ell_2} t_2 &\Longrightarrow \omega_\alpha(t_1) \doteq \omega_\alpha(t_2)
+  \end{align*}
+  where for any sets $S_1,S_2$, $S_1 \doteq S_2 := (S_1 = \emptyset \Leftrightarrow S_2 = \emptyset)$. 
+\end{definition}
+
+The set of strategies is denoted by $\Strat$. In the following, variables $\omega, \omega', \omega_1, \omega_2, \dots$ implicitly range of $\Strat$.
+
+Unlike Rafnsson et al., O'Neill et al.~\cite{ONeill2006} only consider total strategies, i.e.,
+strategies such that $\omega_\alpha(t) \neq \emptyset$ for any $\alpha$ and $t$. The set of such strategies is denoted by $\StratT$.
+
+Two strategies are said to be \emph{equivalent} with respect to a level $\ell$ (`$\ell$-equivalent')
+when the input sets they produce are indistinguishable to an agent that is able to observe
+the presence of inputs on channels with presence level $\sqsubseteq \ell$ and the value of inputs
+on channels with value level $\sqsubseteq \ell$:
+
+\begin{definition}
+  For any $\ell \in \Lattice$, two strategies $\omega, \omega'$ are $\ell$-equivalent, denoted $\omega =_{\ell} \omega'$, iff, for all $\alpha$, $\ell_1^{\ell_2} := \gamma(\alpha)$, and $t$, we have
+  \begin{align*}
+    \ell_1 \sqsubseteq \ell &\Longrightarrow \omega_\alpha(t) = \omega'_\alpha (t) \\
+    \ell_2 \sqsubseteq \ell &\Longrightarrow \omega_\alpha(t) \doteq \omega'_\alpha (t)
+  \end{align*}
+\end{definition}
+
+We can now combine strategies and IOLTS to model possible \emph{runs} of a program under a
+given user behavior. We write $\omega \models s \xrightarrow{t}$ when the trace $t$ can be
+obtained by running the IOLTS from state $s$ with all inputs being provided by strategy $\omega$.
+Formally:
+
+\begin{definition}
+  A trace $t$ is \emph{consistent} with a strategy $\omega$, denoted $\omega \models t$, iff, for any prefix of $t$
+  of the form $t_1. \alpha ? v$, we have $v \in \omega_\alpha(t_1)$.
+
+  A state $s$ \emph{produces a trace $t$ under a strategy $\omega$}, denoted $\omega \models s \xrightarrow{t}$, iff there exists $s'$ such that $s \xrightarrow{t} s'$ and $\omega \models s$.
+\end{definition}
+
+\subsection{Noninterference}
+
+Interactive Noninterference (INI) formalizes the requirement that ``an agent that can only observe
+i-o at level $\ell$ shall not be able to distinguish between two $\ell$-equivalent strategies.''
+More formally, it states that for any pair of $\ell$-equivalent strategies $\omega_1$
+and $\omega_2$, and for any trace $t_1$ produced by a run of the program under $\omega_1$,
+there exists a trace $t_2$ that is $\ell$-equivalent to $t_1$ and can be produced by a run of the
+program under $\omega_2$. The definition is parameterized by a class of strategies $W$.
+
+\begin{definition}[INI]
+  For any $W \subseteq \Strat$, a state $s$ is $W$-noninterfering iff, for all $\ell \in \Lattice$, $\omega_1,\omega_2 \in W$, and $t_1 \in \Traces$,
+  \begin{align*}
+\omega_1 =_\ell \omega_2 \Longrightarrow \omega_1 \models s \xrightarrow{t_1}\,\Longrightarrow \exists t_2.\,\omega_2 \models s \xrightarrow{t_2} \land\, t_1 =_\ell t_2.
+  \end{align*}
+\end{definition}
+
+In this paper, we focus on two variants of interactive noninterference: $\StratNI$ and $\StratTNI$. The problem statement is as follows:
+\begin{problem}
+  Let $W \subseteq \Strat$. Let $(\States_{\mathtt{A}}, \rightarrow_{\mathtt{A}})$ and $(\States_{\mathtt{B}}, \rightarrow_{\mathtt{B}})$ be two IOLTS from some class $P$ of IOLTS. Compose the two IOLTS to obtain $(\States_{\mathtt{A}} \times \States_{\mathtt{B}}, \rightarrow_{\mathtt{AB}})$. If $\sA \in \States_{\mathtt{A}}$ and $\sB \in \States_{\mathtt{B}}$ are both in $W\text{-NI}$, is $\sA \parallel \sB$ also in $W\text{-NI}$? If yes, does compositionality also hold for arbitrary families of IOLTS?
+\end{problem}
+
+O'Neill et al.~\cite{ONeill2006} leaves these questions open. Rafnsson et al. answer them positively for $\Strat$~\cite[Theorem V.1]{Rafnsson2012}.
+
 \section{Non-compositionality}
 
 \label{sec:non-compositionality}
 
-In this section, we first show that the compositionality result claimed by Rafnsson, Hedin, and Sabelfeld
-~\cite[Theorem V.1]{Rafnsson2012} does not hold. We then briefly discuss the flaws found in previously published proofs
-of compositionality. Finally, we show how to extend our attack to the total setup originally considered by O'Neill et
+In this section, we first show that the compositionality result claimed by Rafnsson et al.
+ does not hold. We then briefly discuss the flaws found in a previously published proofs
+ of compositionality. Finally, we show how to extend our attack on INI compositionality
+ to the total setup originally considered by O'Neill et
 al.~\cite{ONeill2006}.
 
 \subsection{Non-compositionality for non-total strategies}
@@ -268,12 +443,17 @@ Our counterexample to the compositionality of INI is based on the following vari
 for two parties. The proof is as follows:
 
 \begin{theorem}[Non-compositionality]
+  \label{thm:noncompositional}
   There exists $\sA, \sB \in \StratNI$ such that $\sA \parallel \sB \notin \StratNI$.
+  \leanref{noncompositional}
 \end{theorem}
 \begin{proof}
-  Let $(\Lattice, \sqsubseteq)$ be the lattice with $\Lattice = \lbrace L, H, H_1, H_2, H_3 \rbrace$
-  and $\sqsubseteq = \lbrace (L, \ell) \mid \ell \in \Lattice\rbrace \cup \lbrace (\ell, \ell) \mid \ell \in \Lattice\rbrace$, i.e.,
-  all $H_i$-levels are incomparable and $L$ is lower than the $H_i$.
+  Let $(\Lattice, \sqsubseteq)$ be the lattice with $\Lattice = \lbrace L, H, H_1, H_2, H_3, \top \rbrace$
+  and $\sqsubseteq = \lbrace (L, \ell) \mid \ell \in \Lattice\rbrace \cup \lbrace (\ell, \ell) \mid \ell \in \Lattice\rbrace
+  \cup \lbrace (\ell, \top) \mid \ell \in \Lattice\rbrace$, i.e.,
+  the levels $H, H_1, H_2, H_3$ are pairwise incomparable, $L$ is lower and $\top$ higher than all
+  other levels. (The top level only ensures that $(\Lattice, \sqsubseteq)$ is a semilattice; no
+  program below reads from or writes to the channel $\top$.)
 
   We reuse the elements of $\Lattice$ as channel names and set
   $\forall \ell.~\gamma(\ell) = \ell^L$, thus giving all channels a low presence label.
@@ -298,6 +478,8 @@ for two parties. The proof is as follows:
 
   We proceed by case distinction on $\ell$:
   \begin{itemize}
+  \item If $\ell = \top$, then $\omega_1 =_\top \omega_2$ implies ${\omega_1}_{\ell'} = {\omega_2}_{\ell'}$
+    for every channel $\ell'$, and $t_2 := t_1$ satisfies the conclusion.
   \item If $\ell = L$, then, since for all $\ell$, $\gamma(\ell)=\ell^L$, the assumption
     $\omega_1 =_\ell \omega_2$ implies $\forall t, \ell.~{\omega_1}_\ell(t) \doteq {\omega_2}_\ell(t)$,
     and since $\omega_1$ and $\omega_2$ are strategies, we obtain
@@ -366,20 +548,21 @@ for two parties. The proof is as follows:
 
   Now, consider the following functions $\omega_1$ and $\omega_2$:
   \begin{align*}
-    {\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t) &= \emptyset && \ell \in \{L, H_3\}\\
+    {\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t) &= \emptyset && \ell \in \{L, H_3, \top\}\\
     {\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t) &= \lbrace v \mid \ell ! v \in t \rbrace && \ell \in \{H_1,H_2\}\\
     {\omega_1}_H(t) &= \{0\} \\
     {\omega_2}_H(t) &= \{1\}.
   \end{align*}
 
   The functions $\omega_1$ and $\omega_2$ are strategies. Since the output of ${\omega_i}_{\ell}$ is constant
-  for $i \in \{0,1\}$, $\ell \in \{L,H,H_3\}$, the only interesting case is when $\ell \in \{H_1,H_2\}$.
+  for $i \in \{0,1\}$, $\ell \in \{L,H,H_3,\top\}$, the only interesting case is when $\ell \in \{H_1,H_2\}$.
   W.l.o.g., consider $\omega_1$ and $H_1$, for which we have $\gamma(H_1) = H_1^L$. If $t_1 =_{H_1} t_2$,
   then in particular $\lbrace v \mid H_1!v  \in t_1\rbrace = \lbrace v \mid H_1! v \in t_2\rbrace$.
   If $t_1 =_L t_2$, then $H_1 ! v \in t_1$ (resp. $H_1 ! v \in t_2$) implies the existence of some $H_1 ! v' \in t_2$
   (resp. $H_1 ! v' \in t_1$), and  hence $\lbrace v \mid H_1!v  \in t_1\rbrace \doteq \lbrace v \mid H_1! v \in t_2\rbrace$.
 
-  Furthermore, we have $\omega_1 =_{H_3} \omega_2$. Namely, ${\omega_1}_{H_3}(t) = {\omega_2}_{H_3}(t)$  for all $t$,
+  Furthermore, we have $\omega_1 =_{H_3} \omega_2$. Namely, ${\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t)$
+  for all $t$ and all $\ell \sqsubseteq H_3$, i.e. $\ell \in \{L, H_3\}$,
   and, for all $\ell$, $t$, we can immediately verify that ${\omega_1}_{\ell}(t)\doteq {\omega_2}_{\ell}(t)$.
 
   We introduce the following trace $t$:
@@ -410,9 +593,11 @@ for two parties. The proof is as follows:
 
 \subsection{Analysis of the previously published proofs}
 
-A flawed compositionality proof was published at CSF'12 by Rafnsson et al.~\cite[p. 301-302]{Rafnsson2012}
-and included in one of the authors' thesis \cite[p. 35-37]{Rafnsson2014}. Given two states $\sA, \sB \in \StratNI$,
-an execution $\omega_1 \vDash \sA \parallel \sB \xrightarrow{t_1}$, and $\omega_2 =_\ell \omega_1$, they construct
+In a paper published at CSF'12, Rafnsson et al. claim to
+have proven the compositionality of reactive non-interference~\cite[p. 301-302]{Rafnsson2012}.
+Unfortunately, the published proof is incorrect.
+Given two states $\sA, \sB \in \StratNI$,
+an execution $\omega_1 \vDash \sA \parallel \sB \xrightarrow{t_1}$, and $\omega_2 =_\ell \omega_1$, the authors construct
 $t_2 =_\ell t_1$ such that $\omega_2 \vDash \sA \parallel \sB \xrightarrow{t_2}$. Their proof attempt proceeds in three
 steps:
 \begin{enumerate}
@@ -429,17 +614,17 @@ The proof of $\omega_{1k} =_\ell \omega_{2k}$ in step (2) contains a mistake. Th
 $\alpha$, and $v$ such that $\gamma(\alpha)=\ell_1^{\ell_2}$ and $\ell_1 \sqsubseteq \ell$,
 the two assumptions $\omega_1 \vDash \sA \parallel \sB \xrightarrow{t'_1.\alpha?v}$ and $\omega_1 =_\ell \omega_2$ 
 imply $\omega_2 \vDash \sA \parallel \sB \xrightarrow{t'_1.\alpha?v}$. This implication cannot be proven from the available
-assumptions; in fact, this implications appears to be a stronger form of the proof goal
+assumptions; in fact, it appears to be a stronger form of the proof goal
 \begin{align*}
   \forall t_1.~&\omega_1 \vDash \sA \parallel \sB \xrightarrow{t_1} \\
   &\Longrightarrow \exists t_2.~t_2 =_\ell t_1 \wedge \omega_2 \vDash \sA \parallel \sB \xrightarrow{t_2}
 \end{align*}
 and thus introduces a circular argument. A similar flaw is found in the case $\ell_1 \not\sqsubseteq \ell \wedge \ell_2 \sqsubseteq \ell$.
 
-We identified a very similar logical flaw in a proof of a related notion of noninterference for component-based systems published
-by Greiner et al.~\cite[p. 265]{Greiner2016} at CSF'16, which is also included in a PhD thesis~\cite[p. 31-33]{Greiner2018}.
-While the counterexample described in this paper may not directly apply to Greiner et al.'s work, the very similar proof patterns
-suggest that further work may be needed to guarantee the correctness of the results claimed.
+%We identified a very similar logical flaw in a proof of a related notion of noninterference for component-based systems published
+%by Greiner et al.~\cite[p. 265]{Greiner2016} at CSF'16, which is also included in a PhD thesis~\cite[p. 31-33]{Greiner2018}.
+%While the counterexample described in this paper may not directly apply to Greiner et al.'s work, the very similar proof patterns
+%suggest that further work may be needed to guarantee the correctness of the results claimed.
 
 \subsection{Non-compositionality for total strategies}
 
@@ -447,12 +632,17 @@ We now extend the attacked described at the beginning of this section to total s
 setup described in O'Neill et al.'s original paper~\cite{ONeill2006}.
 
 \begin{theorem}[Non-compositionality for total strategies]
+  \label{thm:noncompositional total}
   There exists $\sA,\sB \in \StratTNI$ such that $\sA \parallel \sB \notin \StratTNI$.
+  \leanref{noncompositional\_total}
 \end{theorem}
 \begin{proof}
-  Let $(\Lattice, \sqsubseteq)$ be the lattice with $\Lattice = \lbrace L_1, L_2, H, H_1, H_2, H_3 \rbrace$
-  and $\sqsubseteq = \lbrace (L_i, \ell) \mid i \in \{1,2\},\ell \in \Lattice\rbrace \cup \lbrace (\ell, \ell) \mid \ell \in \Lattice\rbrace$, i.e.,
-  all $L_i$- and $H_j$-levels are incomparable and the $L_i$ are lower than the $H_j$.
+  Let $(\Lattice, \sqsubseteq)$ be the lattice with $\Lattice = \lbrace L_1, L_2, H, H_1, H_2, H_3, \top \rbrace$
+  and $\sqsubseteq = \lbrace (L_i, \ell) \mid i \in \{1,2\},\ell \in \Lattice\rbrace \cup \lbrace (\ell, \ell) \mid \ell \in \Lattice\rbrace
+  \cup \lbrace (\ell, \top) \mid \ell \in \Lattice\rbrace$, i.e.,
+  the $H_j$-levels are pairwise incomparable, the $L_i$ are lower and $\top$ higher than all other
+  levels. As before we reuse the levels as channel names, and, since presence is always public in
+  the total setup, we set $\forall \ell.~\gamma(\ell) = \ell^{L_1}$.
   Consider the following programs and states, with new code in blue:
   \begin{align*}
     \PA =~& \pIn{H}{r}; & \PB =~ & (\pComp{\pAssign{x'}{0}}{\pAssign{x'}{1}}); \\
@@ -474,7 +664,7 @@ setup described in O'Neill et al.'s original paper~\cite{ONeill2006}.
 
   Now, consider the following functions $\omega_1$ and $\omega_2$:
   \begin{align*}
-    {\omega_1}_{H_3}(t) = {\omega_2}_{H_3}(t) &= \{0\}\\
+    {\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t) &= \{0\} && \ell \in \{H_3, \top\}\\
     {\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t) &= \lbrace v \mid \ell ! v \in t \rbrace \\
                                               & \forall \ell \in \{L_1,L_2,H_1,H_2\}, \exists v.\,\ell!v \in t\\
     {\omega_1}_{\ell}(t) = {\omega_2}_{\ell}(t) &= \{0\} \\
@@ -526,11 +716,32 @@ We first prove a few helper lemmata.
   \label{thm:deterministic step}
   Consider a deterministic IOLTS. If $s \in \StratNI$ and $s \xrightarrow{e} s'$, then
   $s' \in \StratNI$.
+  \leanref{Sec.deterministic\_step}
 \end{lemma}
 \begin{proof}
   Let $\omega_1, \omega_2 \in \Strat$, $\ell \in \Lattice$, $\omega_1 \sim_\ell \omega_2$.
   Assume that $\omega_1 \vDash s' \xrightarrow{t_1}$ for some $t_1$. We want to obtain
   $t_2 =_\ell t_1$ such that  $\omega_2 \vDash s' \xrightarrow{t_2}$.
+
+  For any channel $\alpha$ and trace $t$, write $t \setminus \alpha$ for the trace obtained from $t$
+  by deleting its first label on channel $\alpha$ (and $t \setminus \alpha := t$ if $t$ contains no
+  such label). For any $D \subseteq \Values$, let $\omega[\alpha \mapsto D]$ be given by
+  \begin{align*}
+    {\omega[\alpha \mapsto D]}_{\alpha'}(t) &= D && \text{if } \alpha' = \alpha \text{ and } \alpha \text{ does not occur in } t\\
+    {\omega[\alpha \mapsto D]}_{\alpha'}(t) &= {\omega}_{\alpha'}(t \setminus \alpha) && \text{otherwise.}
+  \end{align*}
+  Note that the prefix is removed on \emph{all} channels $\alpha'$, and not only on $\alpha$.
+  Let $\ell_1^{\ell_2} := \gamma(\alpha)$. For any level $m$, $\pi_m(t \setminus \alpha)$ is obtained
+  from $\pi_m(t)$ by deleting its first entry on $\alpha$ if $\ell_2 \sqsubseteq m$, and
+  $\pi_m(t\setminus\alpha) = \pi_m(t)$ otherwise; likewise, whether $\alpha$ occurs in $t$ is
+  determined by $\pi_m(t)$ whenever $\ell_2 \sqsubseteq m$. Since $\ell_2 \sqsubseteq \ell_1$, it
+  follows that:
+  \begin{enumerate}[(i)]
+  \item $\omega[\alpha \mapsto D]$ is again a strategy;
+  \item ${\omega[\alpha \mapsto D]}_{\alpha'}(\alpha : v.t) = {\omega}_{\alpha'}(t)$ for all $\alpha'$, $v$, $t$;
+  \item if $\omega_1 \sim_\ell \omega_2$, $D_1 \doteq D_2$, and $\ell_1 \sqsubseteq \ell$ implies
+    $D_1 = D_2$, then $\omega_1[\alpha \mapsto D_1] \sim_\ell \omega_2[\alpha \mapsto D_2]$.
+  \end{enumerate}
 
   We do a case distinction on $e$:
   \begin{itemize}
@@ -542,33 +753,8 @@ We first prove a few helper lemmata.
     $\omega_2 \vDash s' \xrightarrow{t_2}$.
   \item If $e = \alpha ! v$, let $\ell_1^{\ell_2} := \gamma(\alpha)$.
 
-    For $i \in \{1,2\}$, we define
-    \begin{align*}
-      {\omega'_i}_{\alpha'}(t) &= \emptyset && \text{if }\alpha' = \alpha, t =_{\ell_2} \varepsilon\\
-      {\omega'_i}_{\alpha'}(t.\alpha:v.t') &= {\omega_i}_{\alpha'}(t') && \text{if }\alpha' = \alpha, t =_{\ell_2} \varepsilon, t.\alpha:v \neq_{\ell_2} \varepsilon\\
-      {\omega'_i}_{\alpha'}(t) &= {\omega_i}_{\alpha'}(t) && \text{if }\alpha' \neq \alpha.
-    \end{align*}
-    
-    We check that the $\omega'_i$ are strategies. W.l.o.g., consider $\omega'_1$. Since $\omega_1$ is a strategy,
-    the only interesting case is $\alpha' = \alpha$. Let $\sigma_1$, $\sigma_2$ be arbitrary.
-    If $\sigma_1 =_{\ell_1} \sigma_2$, then since $\ell_2 \sqsubseteq \ell_1$, we have $\sigma_1 =_{\ell_2} \sigma_2$.
-    Hence, $\sigma_1 =_{\ell_2} \varepsilon$ iff $\sigma_2 =_{\ell_2} \varepsilon$. If $\sigma_1 =_{\ell_2} \varepsilon$, then
-    ${\omega'_1}_\alpha(\sigma_1) = \emptyset = {\omega'_1}_\alpha(\sigma_2)$. Otherwise, we have
-    $\sigma_1 = \sigma'_1.\alpha_1:v_1.\sigma''_1$,     $\sigma_2 = \sigma'_2.\alpha_2:v_2.\sigma''_2$
-    with $\sigma'_1 =_{\ell_2} \varepsilon$, $\sigma'_2 =_{\ell_2} \varepsilon$,
-    $\sigma''_1.\alpha_1:v_1 \neq_{\ell_2} \varepsilon$, $\sigma''_2.\alpha_2:v_2 \neq_{\ell_2} \varepsilon$.
-    Since $\sigma_1 =_{\ell_2} \sigma_2$, we get $\sigma''_1 =_{\ell_2} \sigma''_2$. Using the fact that $\omega_1$ is a strategy,
-    we conclude that
-    ${\omega'_1}_\alpha(\sigma_1) = {\omega_1}_\alpha(\sigma''_1) =_{\ell_2} {\omega_1}_\alpha(\sigma''_2) = {\omega'_1}_\alpha(\sigma_2)$.
-    The proof for presence labels is similar.
-    
-
-    We also check that $\omega'_1 \sim_\ell \omega'_2$. Again, the only interesting case is $\alpha' = \alpha$.
-    For $\sigma =_{\ell_2} \varepsilon$, we have ${\omega'_1}_\alpha(\sigma)={\omega'_2}_\alpha(\sigma)$.
-    Now, consider a trace of the form $\sigma.\alpha:v.\sigma'$. In this case, we have
-    ${\omega'_1}_\alpha(\sigma.\alpha:v.\sigma')={\omega_1}_\alpha(\sigma')$ and
-    ${\omega'_2}_\alpha(\sigma.\alpha:v.\sigma')={\omega_2}_\alpha(\sigma')$. Since $\omega_1 \sim_\ell \omega_2$,
-    we immediately obtain the desired properties.
+    For $i \in \{1,2\}$, we set $\omega'_i := \omega_i[\alpha \mapsto \emptyset]$. By (i) and (iii)
+    above, the $\omega'_i$ are strategies and $\omega'_1 \sim_\ell \omega'_2$.
 
     Given $\omega_1 \vDash s' \xrightarrow{t_1}$ and $s \xrightarrow{\alpha!v} s'$, the definition of $\omega'_1$
     ensures that $\omega'_1 \vDash s \xrightarrow{\alpha!v.t_1}$.  
@@ -582,15 +768,9 @@ We first prove a few helper lemmata.
     of $\omega'_2$, we finally obtain $\omega_2 \vDash s' \xrightarrow{t_2}$.
   \item If $e = \alpha ? v$, let $\ell_1^{\ell_2} := \gamma(\alpha)$.
 
-    For $i \in \{1,2\}$, we define
-    \begin{align*}
-      {\omega'_i}_{\alpha'}(t) &= \{ v \} && \text{if }\alpha' = \alpha, t =_{\ell_2} \varepsilon\\
-      % probably an issue here -- some cases are not covered by the pattern-matching
-      {\omega'_i}_{\alpha'}(t.\alpha:v.t') &= {\omega_i}_{\alpha'}(t') && \text{if }\alpha' = \alpha, t =_{\ell_2} \varepsilon, t.\alpha:v \neq_{\ell_2} \varepsilon\\
-      {\omega'_i}_{\alpha'}(t) &= {\omega_i}_{\alpha'}(t) && \text{if }\alpha' \neq \alpha.
-    \end{align*}
-   
-    We easily verify that the $\omega'_i$ are equivalent strategies iff $v =_{\ell_1} v_2$.
+    For $i \in \{1,2\}$, we set $\omega'_i := \omega_i[\alpha \mapsto \{v\}]$. By (i) and (iii)
+    above, the $\omega'_i$ are strategies and $\omega'_1 \sim_\ell \omega'_2$.
+
     Given $\omega_1 \vDash s' \xrightarrow{t_1}$ and $s \xrightarrow{\alpha?v} s'$, the definition of $\omega'_1$
     ensures that $\omega'_1 \vDash s \xrightarrow{\alpha?v.t_1}$.  
     Applying NI of $s$, we get $t'_2 =_\ell \alpha?v.t_1$ such that $\omega'_2 \vDash s \xrightarrow{t'_2}$.
@@ -619,42 +799,39 @@ We first prove a few helper lemmata.
     \omega_1 \sim_\ell \omega_2
   \end{gather*}
   then there exists $t_2 =_\ell t_1$ such that $\omega_2 \vDash \sE \xrightarrow{t_2}$.
+  \leanref{Sec.indistinguishable\_NI}
 \end{lemma}
 \begin{proof}
-  By induction on the sum of the lengths of the executions $\sA \xrightarrow{t} \sC$
-  and $\sA \xrightarrow{t'} \sC$.
+  For any trace $u$, define the strategy $\omega \setminus u$ by iterating the construction of the
+  previous lemma along the labels of $u$:
+  $$\omega \setminus \varepsilon := \omega, \qquad
+  \omega \setminus (\alpha : v.u) := (\omega \setminus u)[\alpha \mapsto D_{\alpha:v}],$$
+  where $D_{\alpha ? v} := \{v\}$ and $D_{\alpha ! v} := \emptyset$. By (i) above, $\omega\setminus u$
+  is a strategy. Two straightforward inductions on $u$, resp. on $|u| + |u'|$, using (ii), resp. (iii),
+  give:
+  \begin{enumerate}[(a)]
+  \item if $s \xrightarrow{u} s''$ and $\omega \vDash s'' \xrightarrow{r}$, then
+    $\omega \setminus u \vDash s \xrightarrow{u.r}$;
+  \item if $u =_\ell u'$ and $\omega_1 \sim_\ell \omega_2$, then
+    $\omega_1 \setminus u \sim_\ell \omega_2 \setminus u'$.
+  \end{enumerate}
+  For (b), note that a label $\alpha : v$ with $\ell_2 \not\sqsubseteq \ell$ can be dropped on either
+  side by (iii) (as then $\ell_1 \not \sqsubseteq \ell$), while two labels that are visible at $\ell$
+  agree on their channel, on their direction, and---if $\ell_1 \sqsubseteq \ell$---on their value.
 
-  If both executions are empty, then $\sC = \sE = \sA$ and the desired property is exactly
-  $\sA \in \StratNI$.
+  By (a), $\omega_1 \setminus t \vDash \sA \xrightarrow{t.t_1}$, and by (b),
+  $\omega_1 \setminus t \sim_\ell \omega_2 \setminus t'$. Applying $\sA \in \StratNI$, we obtain
+  $\hat{t}_2 =_\ell t.t_1$ such that $\omega_2 \setminus t' \vDash \sA \xrightarrow{\hat{t}_2}$.
 
-  Otherwise, assume w.l.o.g. that $\sA \xrightarrow{t} \sC$ can be decomposed into
-  $\sA \xrightarrow{\hat{t}} \sC'$, $\sC' \xrightarrow{e} \sC$.
-  \begin{itemize}
-  \item If $e = \tau$, then applying the IH with $\sA$, $\sC'$, $\sE$ and the same traces
-    as before immediately yields the desired result.
-  \item If $e = \alpha?v$, let $\ell_1^{\ell_2} := \gamma(\alpha)$. Then $t=\hat{t}.\alpha?v$.
-    If $\ell_2 \not\sqsubseteq \ell$, the proof is as in the previous case.
-    If $\ell_2 \sqsubseteq \ell$, let $v_1 = v$. By $t =_\ell t'$ we can find $v_2$, $u$, $u'$ such that
-    $t' = u.\alpha?v_2.u'$ and $u =_\ell \varepsilon$. We decompose $\sA \xrightarrow{t'} \sE$
-    into $\sA \xrightarrow{u} \sE'$, $\sE' \xrightarrow{\alpha?v_2.u'} \sE$. Now, define
-    $\omega'_i$, $i \in \{1,2\}$, such that
-    \begin{align*}
-      {\omega'_i}_{\alpha'}(t) &= \{ v_i \} && \text{if }\alpha' = \alpha, t =_{\ell_2} \varepsilon\\
-      {\omega'_i}_{\alpha'}(t.x.t') &= {\omega_i}_{\alpha'}(t') && \text{if }\alpha' = \alpha, t =_{\ell_2} \varepsilon, t.x \neq_{\ell_2} \varepsilon\\
-      {\omega'_i}_{\alpha'}(t) &= {\omega_i}_{\alpha'}(t) && \text{if }\alpha' \neq \alpha
-    \end{align*}
-    As in the previous lemma, the $\omega'_i$ are equivalent strategies.
-    Moreover, we have $\sA \xrightarrow{\hat{t}} \sC'$,
-    $\sA \xrightarrow{u} \sE'$, $\omega'_1 \vDash \sC' \xrightarrow{\alpha?v.t_1}$,
-    and $\hat{t} =_\ell u$. By IH, we obtain $t'_2 =_\ell \alpha?v.t_1$ such that
-    $\omega'_2 \vDash \sE' \xrightarrow{t'_2}$. Since $\ell_2 \sqsubseteq \ell$, $t'_2$ is
-    of the form $\alpha?v'.t_2$ for some $v'$ and $t_2 =_\ell t_1$. Using the definition of
-    $\omega'_2$, we get
-    $\omega_2 \vDash \sE \xrightarrow{t_2}$, which concludes the proof.
-  \item The case of $e = \alpha!v$ is similar.
-  \end{itemize}
+  By determinism and by construction of $\omega_2 \setminus t'$, every run of $\sA$ consistent with
+  $\omega_2 \setminus t'$ follows the execution $\sA \xrightarrow{t'} \sE$: an induction on the latter
+  shows that either (1) $t'$ is of the form $\hat{t}_2.\hat{u}$, or (2) $\hat{t}_2$ is of the form
+  $t'.t_2$ with $\omega_2 \vDash \sE \xrightarrow{t_2}$.
 
-
+  In case (2), $\pi_\ell(t).\pi_\ell(t_1) = \pi_\ell(\hat{t}_2) = \pi_\ell(t').\pi_\ell(t_2)$, and
+  $t =_\ell t'$ gives $t_1 =_\ell t_2$, as required. In case (1), $\pi_\ell(\hat{t}_2)$ is a prefix of
+  $\pi_\ell(t') = \pi_\ell(t)$ and equals $\pi_\ell(t).\pi_\ell(t_1)$; hence
+  $\pi_\ell(t_1) = \varepsilon$ and $t_2 := \varepsilon$ satisfies the conclusion.
 \end{proof}
 
 \begin{theorem}
@@ -663,13 +840,14 @@ We first prove a few helper lemmata.
   \begin{gather*}
     \sA, \sB, \sC, \sD, \sE, \sF \in \StratNI\\
     \omega_1,\omega_2 \in \Strat\\
-    \sA \parallel \sB \xrightarrow{t} \sC \parallel \sD\\
-    \sA \parallel \sB \xrightarrow{t'} \sE \parallel \sF\\
+    \sA \xrightarrow{t_{\mathtt{A}}} \sC \quad \sA \xrightarrow{t'_{\mathtt{A}}} \sE\\
+    \sB \xrightarrow{t_{\mathtt{B}}} \sD \quad \sB \xrightarrow{t'_{\mathtt{B}}} \sF\\
     \omega_1 \vDash \sC \parallel \sD \xrightarrow{t_1} \\
-    t =_\ell t'\\
+    t_{\mathtt{A}} =_\ell t'_{\mathtt{A}} \quad t_{\mathtt{B}} =_\ell t'_{\mathtt{B}}\\
     \omega_1 \sim_\ell \omega_2
   \end{gather*}
   then there exists $t_2 =_\ell t_1$ such that $\omega_2 \vDash \sE \parallel \sF \xrightarrow{t_2}$.
+  \leanref{Sec.compose\_helper}
 \end{theorem}
 \begin{proof}
   By induction on the length of the execution $\sC \parallel \sD \xrightarrow{t_1}$.
@@ -679,7 +857,7 @@ We first prove a few helper lemmata.
 
   Otherwise, the execution can be decomposed, w.l.o.g., as $\sC \xrightarrow{e} \sC'$, $\sC' \parallel \sD \xrightarrow{t_1'}$. 
   \begin{itemize}
-  \item If $e = \tau$, then we have $\sA \parallel \sB \xrightarrow{t} \sC' \parallel \sD$ and
+  \item If $e = \tau$, then we have $\sA \xrightarrow{t_{\mathtt{A}}} \sC'$ and
     $\omega_1 \vDash \sC' \parallel \sD \xrightarrow{t_1}$. Furthermore, by
     Lemma~\ref{thm:deterministic step}, we have $\sC' \in \StratNI$.
     Hence, by IH, we get $t_2 =_\ell t_1$ such
@@ -691,7 +869,8 @@ We first prove a few helper lemmata.
     $\omega_1 \vDash \sC \xrightarrow{e}$ and
     $\forall t'_2,\sE'.~\omega_2 \vDash \sE \xrightarrow{t_2'} \sE' \Longrightarrow \omega_2 \vDash \sE \parallel \sF \xrightarrow{t_2'} \sE' \parallel \sF$.
 
-    Since $\sC \in \StratNI$, then by Lemma~\ref{thm:indistinguishable NI} there
+    Since $\sA \in \StratNI$, $\sA \xrightarrow{t_{\mathtt{A}}} \sC$, $\sA \xrightarrow{t'_{\mathtt{A}}} \sE$,
+    and $t_{\mathtt{A}} =_\ell t'_{\mathtt{A}}$, then by Lemma~\ref{thm:indistinguishable NI} there
     exists $t'' =_\ell \alpha:v$ and $\sE'$ such that
     $\omega_2 \vDash \sE \xrightarrow{t''} \sE'$,  and therefore
     $\omega_2 \vDash \sE \parallel \sF \xrightarrow{t''} \sE' \parallel \sF$.
@@ -726,10 +905,10 @@ We first prove a few helper lemmata.
 
     Now, by Lemma~\ref{thm:deterministic step}, $\sC', \sE' \in \StratNI$; furthermore,
     $\omega'_1,\omega'_2 \in \Strat$,
-    $\sA \parallel \sB \xrightarrow{t_1.\alpha:v} \sC' \parallel \sE$,
-    $\sA \parallel \sB \xrightarrow{t_1.t''} \sE' \parallel \sF$,
+    $\sA \xrightarrow{t_{\mathtt{A}}.\alpha:v} \sC'$, $\sA \xrightarrow{t'_{\mathtt{A}}.t''} \sE'$,
+    $\sB \xrightarrow{t_{\mathtt{B}}} \sD$, $\sB \xrightarrow{t'_{\mathtt{B}}} \sF$,
     $\omega'_1 \vDash \sC' \parallel \sD \xrightarrow{t'_1}$,
-    $t.\alpha:v =_\ell t'.t''$,
+    $t_{\mathtt{A}}.\alpha:v =_\ell t'_{\mathtt{A}}.t''$, $t_{\mathtt{B}} =_\ell t'_{\mathtt{B}}$,
     and $\omega'_1 \sim_\ell \omega'_2$.
     By IH, we get $t'_2 =_\ell t'_1$ such that
     $\omega'_2 \vDash \sE' \parallel \sF \xrightarrow{t'_2}$. Hence, $\alpha:v.t'_1 =_\ell t''.t'_2$
@@ -742,9 +921,11 @@ Finally, we prove compositionality of INI for deterministic programs:
 \begin{theorem}
   \label{thm:deterministic}
   Consider a deterministic IOLTS. If $\sA, \sB \in \StratNI$, then $\sA \parallel \sB \in \StratNI$.
+  \leanref{Sec.deterministic\_compositional}
 \end{theorem}
 \begin{proof}
-  Immediate from Theorem~\ref{thm:helper deterministic}, setting $\sC = \sE = \sA$, $\sD = \sF = \sB$.
+  Immediate from Theorem~\ref{thm:helper deterministic}, setting $\sC = \sE = \sA$, $\sD = \sF = \sB$,
+  and $t_{\mathtt{A}} = t'_{\mathtt{A}} = t_{\mathtt{B}} = t'_{\mathtt{B}} = \varepsilon$.
 \end{proof}
 
 In general, an IOLTS obtained by parallel composition of two IOLTS is no longer deterministic---in fact, it is almost
@@ -752,13 +933,14 @@ always trivially non-deterministic. Therefore, the previous theorem cannot be ap
 composition of more than two deterministic IOLTS. Fortunately, Theorems~\ref{thm:helper deterministic}--\ref{thm:deterministic}
 can be straightforwardly adapted to support parallel composition of any (finite or infinite) family of deterministic IOLTS. This leads to the following theorem:
 \begin{theorem}
-  \label{thm:deterministic}
+  \label{thm:deterministic family}
   Consider a family $(s_i)_{i\in I}$ of deterministic IOLTS. If $s_i \in \StratNI$ for all $i \in I$, then $\parallel_{i \in I} s_i \in \StratNI$.
+  \leanref{Sec.deterministic\_compositional\_family}
 \end{theorem}
 
 \section{Discussion and conclusion}
 
-In this paper, we have shown that, unlike claimed in previous work~\cite{Rafnsson2012,Rafnsson2014}, Interactive Non-Interference (INI) for non-deterministic programs does not compose. However, INI \emph{does} compose when programs are deterministic.
+In this paper, we have shown that, unlike claimed in previous work~\cite{Rafnsson2012,Rafnsson2014}, Interactive Noninterference (INI) for non-deterministic programs does not compose. However, INI \emph{does} compose when programs are deterministic.
 
 What does that imply for practical applications of INI? Rafnsson et al.~\cite{Rafnsson2012} present a type system to statically check for INI in imperative languages. They first describe a type system for deterministic programs, and then extend it to support non-determinism by introducing a rule
 \begin{align*}
@@ -800,3 +982,8 @@ It remains open whether stricter notions of non-interference could be exhibited 
 \endinput
 %%
 %% End of file `elsarticle-template-num.tex'.
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
