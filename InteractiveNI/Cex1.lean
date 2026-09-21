@@ -1,5 +1,5 @@
 /-
-  §3.1 — Non-compositionality of `Strat-NI` (Theorem 1).
+  §3.1 — Non-compositionality of `Strat-NI` (Theorem 10).
 
   The security context, the two secret-sharing programs `P_A` and `P_B`,
   and their basic metatheory.
@@ -66,7 +66,6 @@ def Sc : Sec L5 L5 where
   valL := fun c => c
   pres_le_val := fun _ => Or.inl rfl
 
-@[simp] theorem Sc_presL (c : L5) : Sc.presL c = L5.Lo := rfl
 @[simp] theorem Sc_valL (c : L5) : Sc.valL c = c := rfl
 @[simp] theorem Sc_le (a b : L5) : Sc.le a b = L5.le a b := rfl
 
@@ -164,19 +163,6 @@ theorem stepB_neutral : InputNeutral stepB := by
   cases h
   · exact ⟨_, stepB.inH1 _ v'⟩
 
-
-/-- Both programs are genuinely non-deterministic — as they must be, by
-    Theorem 3 (`Sec.deterministic_compositional`). -/
-theorem stepA_not_det : ¬ Deterministic stepA := by
-  intro h
-  have h2 : AState.a2 false false = AState.a2 false true :=
-    h.target (stepA.x0 false) (stepA.x1 false)
-  simp at h2
-
-theorem stepB_not_det : ¬ Deterministic stepB := by
-  intro h
-  have h2 : BState.b1 false = BState.b1 true := h.target stepB.x0 stepB.x1
-  simp at h2
 
 /-! ### Characterisation of the traces of `P_A` -/
 
@@ -775,7 +761,7 @@ theorem par_not_NI : ¬ Sc.StratNI (parStep stepA stepB) (AState.a0, BState.b0) 
 
 end Cex1
 
-/-- **Theorem 1** (Non-compositionality).  There are `sA, sB ∈ Strat-NI` whose
+/-- **Theorem 10** (Non-compositionality).  There are `sA, sB ∈ Strat-NI` whose
     composition is not in `Strat-NI`. -/
 theorem noncompositional :
     ∃ (Level Channel Value : Type) (S : Sec Level Channel) (St₁ St₂ : Type)

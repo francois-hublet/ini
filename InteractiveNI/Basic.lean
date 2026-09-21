@@ -4,7 +4,7 @@
   §2 of the paper: the model.
 
   Everything here is a transcription of the definitions in
-  `elsarticle-template-num.tex`, Section 2.
+  the paper, Section 2.
 -/
 
 namespace InteractiveNI
@@ -109,7 +109,6 @@ noncomputable def proj (ℓ : Level) (t : List (Lbl Channel Value)) :
 def teq (ℓ : Level) (t t' : List (Lbl Channel Value)) : Prop :=
   S.proj ℓ t = S.proj ℓ t'
 
-@[refl] theorem teq.refl (ℓ : Level) (t : List (Lbl Channel Value)) : S.teq ℓ t t := rfl
 theorem teq.symm {S : Sec Level Channel} {ℓ : Level} {t t' : List (Lbl Channel Value)}
     (h : S.teq ℓ t t') : S.teq ℓ t' t := Eq.symm h
 theorem teq.trans {S : Sec Level Channel} {ℓ : Level} {t t' t'' : List (Lbl Channel Value)}
@@ -131,9 +130,6 @@ def seq (ℓ : Level) (w w' : S.Strategy Value) : Prop :=
   ∀ a t,
     (S.le (S.valL a) ℓ  → w.ω a t = w'.ω a t) ∧
     (S.le (S.presL a) ℓ → dotEq (w.ω a t) (w'.ω a t))
-
-@[refl] theorem seq.refl (ℓ : Level) (w : S.Strategy Value) : S.seq ℓ w w :=
-  fun _ _ => ⟨fun _ => rfl, fun _ => dotEq.refl _⟩
 
 theorem seq.symm {S : Sec Level Channel} {ℓ : Level} {w w' : S.Strategy Value} (h : S.seq ℓ w w') :
     S.seq ℓ w' w := fun a t =>

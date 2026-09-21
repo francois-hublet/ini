@@ -52,10 +52,6 @@ def Sc : Sec Lv Chan where
   valL := fun c => match c with | .p => Lv.Ob | .q => Lv.Ob | .a => Lv.Hi
   pres_le_val := fun c => by cases c <;> exact Or.inl rfl
 
-theorem not_pub : ¬ Sec.PublicPresence Sc := by
-  intro h
-  rcases h Chan.a Lv.Ob with h | h <;> exact Lv.noConfusion h
-
 /-! ### The component -/
 
 inductive St where
@@ -137,11 +133,6 @@ theorem reach_traces {c : Chan} {s s' : St} {t : List (Lbl Chan Bool)}
       all_goals simp [O, RF, RT]
 
 /-! ### Visibility -/
-
-/-- Membership gives visibility. -/
-theorem vis_self {C : Sec.Coalition Lv} {x : Lv} (h : C x) :
-    Sc.coalition.le (Sec.sing x) C :=
-  fun c hc => ⟨x, h, Or.inl (by rw [show c = x from hc])⟩
 
 theorem ob_vis_ob : Sc.coalition.le (Sec.sing Lv.Ob) (Sec.sing Lv.Ob) :=
   Sc.coalition.le_refl _
@@ -541,10 +532,6 @@ theorem projLbl_RF_Hi :
     Sc.coalition.projLbl (Sec.sing Lv.Hi) RF = some (PLbl.inp Chan.a (some false)) :=
   Sec.projLbl_inp_full (Sc.coalition.le_refl _) (Sc.coalition.le_refl _)
 
-theorem projLbl_RT_Hi :
-    Sc.coalition.projLbl (Sec.sing Lv.Hi) RT = some (PLbl.inp Chan.a (some true)) :=
-  Sec.projLbl_inp_full (Sc.coalition.le_refl _) (Sc.coalition.le_refl _)
-
 /-! ### No run under `W2` produces the observation -/
 
 theorem projLbl_O_Hi {c : Chan} (hc : c ≠ Chan.a) :
@@ -643,19 +630,6 @@ theorem progs_NI :
     Sc.coalition.StratTNI (prog Chan.p) St.s0 ∧ Sc.coalition.StratTNI (prog Chan.q) St.s0 :=
   ⟨prog_NI (by simp), prog_NI (by simp)⟩
 
-/-- **Coalition noninterference does not compose when presence may be secret.**
-    The hypothesis that presence is public cannot be dropped from
-    `coalition_compositional_total_fin`, even with finitely many channels. -/
-theorem no_general_composition :
-    ¬ ∀ (Lvl Ch Val : Type) (S : Sec Lvl Ch) (cs : List Ch), (∀ a : Ch, a ∈ cs) →
-        ∀ (StA StB : Type) (stepA : StA → Act Ch Val → StA → Prop)
-          (stepB : StB → Act Ch Val → StB → Prop) (sA : StA) (sB : StB),
-          S.coalition.StratTNI stepA sA → S.coalition.StratTNI stepB sB →
-          S.coalition.StratTNI (parStep stepA stepB) (sA, sB) := by
-  intro h
-  exact par_not_NI (h Lv Chan Bool Sc [Chan.p, Chan.q, Chan.a] (fun a => by cases a <;> simp)
-    St St (prog Chan.p) (prog Chan.q) St.s0 St.s0 progs_NI.1 progs_NI.2)
-
 /-! ### The same example refutes the original claim about INI
 
     Coalition noninterference implies INI, and the failure above is at a
@@ -676,18 +650,6 @@ theorem par_not_INI :
   refine no_match ⟨t₂, hp, ?_⟩
   rw [← (Sec.coalition_teq_sing (S := Sc) (Value := Bool) Lv.Ob wit t₂).mpr ht]
   exact wit_obs
-
-/-- **INI does not compose**, over a lattice of width two, with total strategies,
-    and with components that are even coalition noninterfering. -/
-theorem INI_not_compositional :
-    ¬ ∀ (Lvl Ch Val : Type) (S : Sec Lvl Ch) (cs : List Ch), (∀ a : Ch, a ∈ cs) →
-        ∀ (StA StB : Type) (stepA : StA → Act Ch Val → StA → Prop)
-          (stepB : StB → Act Ch Val → StB → Prop) (sA : StA) (sB : StB),
-          S.StratTNI stepA sA → S.StratTNI stepB sB →
-          S.StratTNI (parStep stepA stepB) (sA, sB) := by
-  intro h
-  exact par_not_INI (h Lv Chan Bool Sc [Chan.p, Chan.q, Chan.a] (fun a => by cases a <;> simp)
-    St St (prog Chan.p) (prog Chan.q) St.s0 St.s0 progs_INI.1 progs_INI.2)
 
 end CexPresence
 

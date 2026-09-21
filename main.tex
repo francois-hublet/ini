@@ -298,7 +298,12 @@ Compositionality on stream semantics was further developed by Rafnsson and
 Sabelfeld~\cite{RafnssonSabelfeld2014} in a significantly different setup---we do not examine their
 results here, nor do we claim that our results affect their other conclusions in any way.
 
-Formal verification of noninterference is standard (see, e.g.~\cite{Popescu2013}).
+Formal verification of noninterference is well-established~\cite{Popescu2012,Popescu2013,Murray2016}
+and has recently become increasingly cheap with the advent of autoformalization agents~\cite{Wu2022}.
+We adopt this approach as a good practice as we revisit the findings of previous work,
+using Claude Opus 4.8 and 5 for formalization in Lean 4~\cite{Moura2021}. The specifications of
+all formal proofs generated from manual drafts were manually controlled.
+
 
 \section{Interactive Noninterference}
 

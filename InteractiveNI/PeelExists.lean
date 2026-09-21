@@ -8,7 +8,7 @@
   its own level is added, which is flatness.
 
   The presence-monotone clause of `PeelableM` is a different matter: it is not
-  always satisfiable, and `NoPeelMono.lean` exhibits a context where it fails.
+  always satisfiable.
 -/
 import InteractiveNI.LayerGame
 
@@ -221,63 +221,6 @@ theorem mem_layerC {S : Sec Level Channel} {m : Level} :
       rcases List.mem_cons.mp hn with rfl | hn
       · exact Or.inr rfl
       · exact Or.inl (ih n hn)
-
-/-- A linear extension of the levels the channels carry *is* a flat peeling. -/
-theorem peelFlat_of_ext {S : Sec Level Channel} {m : Level} {L : List Level}
-    (hL : ∀ a : Channel, S.valL a ∈ L) :
-    ∀ ns : List Level, Ext S L ns → PeelFlat S m ns := by
-  intro ns
-  induction ns with
-  | nil => intro _; trivial
-  | cons n ns ih =>
-      intro hE
-      refine ⟨?_, ih hE.2⟩
-      intro a ha
-      refine Classical.byContradiction fun hcon => ?_
-      obtain ⟨d, hd, hle⟩ := ha.1 (S.valL a) rfl
-      rcases hd with hd | rfl
-      · exact ha.2 (fun c hc => ⟨d, hd, by rw [show c = S.valL a from hc]; exact hle⟩)
-      · exact ha.2 (vis_of_mem (mem_layerC ns _ (hE.1 (S.valL a) (hL a) ⟨hle, hcon⟩)))
-
-/-- **A peeling always exists.**  With finitely many channels, `Peelable` is not a
-    hypothesis but a theorem: order the levels the channels carry by a linear
-    extension of `⊑` and peel them upwards. -/
-theorem peelable_of_finite {S : Sec Level Channel}
-    (cs : List Channel) (hcs : ∀ a : Channel, a ∈ cs) (m : Level) : Peelable S m := by
-  classical
-  obtain ⟨ns, hcov, -, hE⟩ :=
-    exists_ext (S := S) (cs.map (fun a => S.valL a)).length (cs.map (fun a => S.valL a))
-      (Nat.le_refl _)
-  have hL : ∀ a : Channel, S.valL a ∈ cs.map (fun a => S.valL a) :=
-    fun a => List.mem_map.mpr ⟨a, hcs a, rfl⟩
-  exact ⟨ns, fun a => vis_of_mem (mem_layerC ns _ (hcov _ (hL a))), peelFlat_of_ext hL ns hE⟩
-
-/-! ### The peeling hypothesis discharged
-
-    Both compositionality theorems were stated with the peeling as an assumption.
-    With finitely many channels it is now a theorem, so the assumption goes. -/
-
-/-- **Coalition `Strat_T`-noninterference composes**: presence public and finitely
-    many channels, nothing else. -/
-theorem coalition_compositional_total_fin {S : Sec Level Channel}
-    (hpubS : PublicPresence S) (dflt : Value)
-    {StA StB : Type} {stepA : StA → Act Channel Value → StA → Prop}
-    {stepB : StB → Act Channel Value → StB → Prop} {sA : StA} {sB : StB}
-    (cs : List Channel) (hcs : ∀ a : Channel, a ∈ cs)
-    (hNIA : S.coalition.StratTNI stepA sA) (hNIB : S.coalition.StratTNI stepB sB) :
-    S.coalition.StratTNI (parStep stepA stepB) (sA, sB) :=
-  coalition_compositional_total hpubS dflt cs hcs (peelable_of_finite cs hcs) hNIA hNIB
-
-/-- **Coalition `Strat`-noninterference composes**: the non-total case, same
-    hypotheses. -/
-theorem coalition_compositional_strat_fin {S : Sec Level Channel}
-    (hpubS : PublicPresence S) (dflt : Value)
-    {StA StB : Type} {stepA : StA → Act Channel Value → StA → Prop}
-    {stepB : StB → Act Channel Value → StB → Prop} {sA : StA} {sB : StB}
-    (cs : List Channel) (hcs : ∀ a : Channel, a ∈ cs)
-    (hNIA : S.coalition.StratNI stepA sA) (hNIB : S.coalition.StratNI stepB sB) :
-    S.coalition.StratNI (parStep stepA stepB) (sA, sB) :=
-  coalition_compositional_strat hpubS dflt cs hcs (peelable_of_finite cs hcs) hNIA hNIB
 
 /-! ### Descending order, for total orders -/
 

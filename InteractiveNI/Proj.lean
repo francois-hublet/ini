@@ -21,12 +21,6 @@ local notation:50 a " ⊑ " b => S.le a b
 
 @[simp] theorem proj_nil (ℓ : Level) : S.proj (Value := Value) ℓ [] = [] := rfl
 
-theorem proj_cons (ℓ : Level) (l : Lbl Channel Value) (t : List (Lbl Channel Value)) :
-    S.proj ℓ (l :: t) =
-      (match S.projLbl ℓ l with | none => S.proj ℓ t | some p => p :: S.proj ℓ t) := by
-  simp [proj, List.filterMap_cons]
-  cases S.projLbl ℓ l <;> simp
-
 theorem proj_cons_some {ℓ : Level} {l : Lbl Channel Value} {p : PLbl Channel Value}
     (h : S.projLbl ℓ l = some p) (t : List (Lbl Channel Value)) :
     S.proj ℓ (l :: t) = p :: S.proj ℓ t := by
@@ -85,12 +79,6 @@ theorem projLbl_eq_none_iff {ℓ : Level} {l : Lbl Channel Value} :
       · by_cases h' : S.valL a ⊑ ℓ <;>
           simp [Lbl.chan, projLbl_out_full, projLbl_out_pres, h, h']
       · simp [Lbl.chan, projLbl_out_hidden h, h]
-
-/-- Labels erased by `π_ℓ` do not change the projection. -/
-theorem proj_cons_hidden {ℓ : Level} {l : Lbl Channel Value}
-    (h : ¬ (S.presL l.chan ⊑ ℓ)) (t : List (Lbl Channel Value)) :
-    S.proj ℓ (l :: t) = S.proj ℓ t :=
-  proj_cons_none (projLbl_eq_none_iff.mpr h) t
 
 /-! ### ℓ-equivalence is monotone in ℓ -/
 
@@ -232,28 +220,6 @@ theorem mem_proj_out_pres {ℓ : Level} {a : Channel}
             · rintro ⟨v, (heq | hm)⟩
               · injection heq with hb _; subst hb; exact absurd h hp
               · exact ⟨v, hm⟩
-
-/-! ### Cancellation -/
-
-theorem teq_cons_cancel {ℓ : Level} {l : Lbl Channel Value}
-    {t t' : List (Lbl Channel Value)} (h : S.teq ℓ (l :: t) (l :: t')) :
-    S.teq ℓ t t' := by
-  unfold teq at *
-  cases hl : S.projLbl ℓ l with
-  | none => rwa [proj_cons_none hl, proj_cons_none hl] at h
-  | some p =>
-      rw [proj_cons_some hl, proj_cons_some hl] at h
-      exact (List.cons.injEq .. ▸ h).2
-
-theorem teq_append_cancel {ℓ : Level} {u u' t t' : List (Lbl Channel Value)}
-    (hu : S.teq ℓ u u') (h : S.teq ℓ (u ++ t) (u' ++ t')) : S.teq ℓ t t' := by
-  unfold teq at *
-  rw [proj_append, proj_append, hu] at h
-  exact List.append_cancel_left h
-
-theorem teq_of_nil_proj {ℓ : Level} {t t' : List (Lbl Channel Value)}
-    (h : S.proj ℓ t = []) (h' : S.proj ℓ t' = []) : S.teq ℓ t t' := by
-  unfold teq; rw [h, h']
 
 end Sec
 

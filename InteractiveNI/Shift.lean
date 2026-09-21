@@ -295,9 +295,6 @@ theorem dOf_inp {C V} (a : C) (v : V) : dOf (Lbl.inp a v) v := ⟨rfl, rfl⟩
 theorem dOf_inp_iff {C V} {a : C} {v x : V} : dOf (Lbl.inp a v) x ↔ x = v :=
   ⟨fun h => h.2, fun h => ⟨rfl, h⟩⟩
 
-theorem dOf_out {C V} {a : C} {v x : V} : ¬ dOf (Lbl.out a v) x := by
-  rintro ⟨h, -⟩; exact absurd h (by simp [Lbl.isInp])
-
 theorem consistent_cons_shift {a : Channel} {d : VSet Value} {w : S.Strategy Value}
     {l : Lbl Channel Value} {t : List (Lbl Channel Value)} (hl : l.chan = a)
     (hv : ∀ v, l.isInp = true → l.val = v → d v) (hc : S.consistent w t) :

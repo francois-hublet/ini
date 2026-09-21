@@ -91,14 +91,6 @@ theorem coalition_compositional_of_cmp {S : Sec Level Channel} {ls : List Level}
   coalition_compositional_totalW dflt hcsA hcsB
     (fun m => peelableM_of_cmp ls hcmp m) hNIA hNIB
 
-/-! ### The two special cases -/
-
-theorem cmp_of_pub {S : Sec Level Channel} (hpubS : PublicPresence S) (ls : List Level) :
-    Cmp S ls := fun a _ x _ => Or.inl (hpubS a x)
-
-theorem cmp_of_total {S : Sec Level Channel} (htot : S.IsTotal) (ls : List Level) :
-    Cmp S ls := fun a _ x _ => htot (S.presL a) x
-
 /-! ### Necessity -/
 
 /-- With `b` invisible to nobody at the start and `c` exposed by a flat layer,

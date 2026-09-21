@@ -118,7 +118,7 @@ variable {St₁ St₂ : Type}
   {step₁ : St₁ → Act Channel Value → St₁ → Prop}
   {step₂ : St₂ → Act Channel Value → St₂ → Prop}
 
-/-- The statement proved by induction in Theorem 3. -/
+/-- The statement proved by induction in Theorem 17. -/
 def ComposeGoal (S : Sec Level Channel)
     (step₁ : St₁ → Act Channel Value → St₁ → Prop)
     (step₂ : St₂ → Act Channel Value → St₂ → Prop)
@@ -172,7 +172,7 @@ theorem compose_labelled (hdet₁ : Deterministic step₁) (hdet₂ : Determinis
     · exact consistent_append hcons'' hprod'.2
     · exact teq_append hteq'' hteq'
 
-/-- **Theorem (helper)** of §4, binary case. -/
+/-- **Lemma 16** of the paper, the binary case. -/
 theorem compose_helper (hdet₁ : Deterministic step₁) (hdet₂ : Deterministic step₂)
     {sA : St₁} {sB : St₂} (hA : S.StratNI step₁ sA) (hB : S.StratNI step₂ sB)
     {p q : St₁ × St₂} {t₁ : List (Lbl Channel Value)}
@@ -200,7 +200,7 @@ theorem compose_helper (hdet₁ : Deterministic step₁) (hdet₂ : Deterministi
   | @out p p' q a v t hs _ ih =>
       exact compose_labelled hdet₁ hdet₂ hA hB (l := Lbl.out a v) hs ih
 
-/-- **Theorem 3**: INI composes for two deterministic IOLTS. -/
+/-- **Theorem 17**: INI composes for two deterministic IOLTS. -/
 theorem deterministic_compositional (hdet₁ : Deterministic step₁)
     (hdet₂ : Deterministic step₂) {sA : St₁} {sB : St₂}
     (hA : S.StratNI step₁ sA) (hB : S.StratNI step₂ sB) :
@@ -285,7 +285,7 @@ theorem par_reach_fam {i : I} :
       rw [upd_upd] at this
       exact Reach.out hstep this
 
-/-- The statement proved by induction in Theorem 6. -/
+/-- The statement proved by induction in Theorem 18. -/
 def ComposeGoalFam (S : Sec Level Channel)
     (step : ∀ i, St i → Act Channel Value → St i → Prop)
     (sA : ∀ i, St i) (p : ∀ i, St i) (t₁ : List (Lbl Channel Value)) : Prop :=
@@ -359,7 +359,7 @@ theorem compose_helper_fam (hdet : ∀ i, Deterministic (step i))
   | @out p p' q a v t hs _ ih =>
       exact compose_labelled_fam hdet hA (l := Lbl.out a v) hs ih
 
-/-- **Theorem 6**: INI composes for arbitrary families of deterministic IOLTS. -/
+/-- **Theorem 18**: INI composes for arbitrary families of deterministic IOLTS. -/
 theorem deterministic_compositional_family (hdet : ∀ i, Deterministic (step i))
     {s : ∀ i, St i} (hNI : ∀ i, S.StratNI (step i) (s i)) :
     S.StratNI (parStepFam step) s := by

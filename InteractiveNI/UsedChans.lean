@@ -141,11 +141,6 @@ def PeelFlatOn (S : Sec Level Channel) (m : Level) (ls : List Level) :
   | n :: ns => (∀ a : Channel, S.valL a ∈ ls →
       NewlyVisible S (layerC S m ns) n a → S.le n (S.valL a)) ∧ PeelFlatOn S m ls ns
 
-theorem peelFlatOn_of_peelFlat {S : Sec Level Channel} {m : Level} {ls : List Level} :
-    ∀ ns : List Level, PeelFlat S m ns → PeelFlatOn S m ls ns
-  | [] => fun _ => trivial
-  | _ :: ns => fun h => ⟨fun a _ ha => h.1 a ha, peelFlatOn_of_peelFlat ns h.2⟩
-
 /-- A peeling that exhausts the levels in `ls`, flat along the way. -/
 def PeelableOn (S : Sec Level Channel) (m : Level) (ls : List Level) : Prop :=
   ∃ ns : List Level,

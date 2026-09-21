@@ -1,13 +1,7 @@
 /-
   **What the coalition notion buys: INI composes over a total order.**
 
-  The contextual closure of Section 5.4 composes whatever notion it is applied
-  to, so compositionality on its own is not what coalition noninterference
-  provides.  What it provides is a *certificate*: an intrinsic property of one
-  component that implies the contextual one, which INI itself is not
-  (Theorem~2).
-
-  Here is the sharpest use of that.  Over a finite total order every non-empty
+  Over a finite total order every non-empty
   coalition has a greatest element, so coalition noninterference collapses to
   INI; the composition theorem then applies and gives INI of the composition.
   Over a total order, therefore, INI *does* compose.
@@ -120,20 +114,6 @@ theorem coalition_of_INI {S : Sec Level Channel} (htot : S.IsTotal)
   show S.coalition.proj C t₁ = S.coalition.proj C t₂
   rw [proj_greatest hc hmax, proj_greatest hc hmax]
   exact hteq
-
-/-- **INI composes over a total order.**  With presence public and finitely many
-    levels, no two of which are incomparable, the counterexamples of Section 3
-    cannot be built---and indeed there are none: INI is compositional there. -/
-theorem INI_compositional_of_total {S : Sec Level Channel} (hpubS : PublicPresence S)
-    (htot : S.IsTotal) (dflt : Value) (ls : List Level) (hls : ∀ l : Level, l ∈ ls)
-    {StA StB : Type} {stepA : StA → Act Channel Value → StA → Prop}
-    {stepB : StB → Act Channel Value → StB → Prop} {sA : StA} {sB : StB}
-    (hA : S.StratTNI stepA sA) (hB : S.StratTNI stepB sB) :
-    S.StratTNI (parStep stepA stepB) (sA, sB) :=
-  StratTNI_of_coalition
-    (coalition_compositional_total_used hpubS dflt (ls := ls)
-      (usesLevels_all hls) (usesLevels_all hls)
-      (coalition_of_INI htot ls hls hA) (coalition_of_INI htot ls hls hB))
 
 /-! ### Over a total order the peeling is presence-monotone for free -/
 

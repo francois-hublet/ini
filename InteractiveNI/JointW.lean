@@ -33,85 +33,6 @@ theorem Interleave.filterMap {α β : Type} (f : α → Option β) {u v w : List
       · simpa [List.filterMap_cons_none hx] using ih
       · simp only [List.filterMap_cons_some hx]; exact Interleave.right ih
 
-theorem Interleave.append_left {α : Type} (blk : List α) {u v w : List α}
-    (h : Interleave u v w) : Interleave (blk ++ u) v (blk ++ w) := by
-  induction blk with
-  | nil => simpa using h
-  | cons x blk ih => exact Interleave.left ih
-
-theorem Interleave.append_right {α : Type} (blk : List α) {u v w : List α}
-    (h : Interleave u v w) : Interleave u (blk ++ v) (blk ++ w) := by
-  induction blk with
-  | nil => simpa using h
-  | cons x blk ih => exact Interleave.right ih
-
-theorem Interleave.nil_right {α : Type} : ∀ u : List α, Interleave u [] u
-  | [] => Interleave.nil
-  | _ :: u => Interleave.left (Interleave.nil_right u)
-
-theorem Interleave.nil_left {α : Type} : ∀ v : List α, Interleave [] v v
-  | [] => Interleave.nil
-  | _ :: v => Interleave.right (Interleave.nil_left v)
-
-theorem Interleave.eq_of_nil_left {α : Type} : ∀ {v w : List α}, Interleave [] v w → w = v := by
-  intro v
-  induction v with
-  | nil => intro w h; cases h with | nil => rfl
-  | cons y v ih => intro w h; cases h with | right h' => exact congrArg _ (ih h')
-
-theorem Interleave.eq_of_nil_right {α : Type} : ∀ {u w : List α}, Interleave u [] w → w = u := by
-  intro u
-  induction u with
-  | nil => intro w h; cases h with | nil => rfl
-  | cons x u ih => intro w h; cases h with | left h' => exact congrArg _ (ih h')
-
-/-- **Interleavings lift through a projection.**  If the projections of two traces
-    interleave to `dm`, then the traces themselves interleave to some trace whose
-    projection is `dm`: schedule each invisible label with the side that owns it. -/
-theorem Interleave.lift {α β : Type} (f : α → Option β) :
-    ∀ (u v : List α) (dm : List β),
-      Interleave (u.filterMap f) (v.filterMap f) dm →
-      ∃ t, Interleave u v t ∧ t.filterMap f = dm := by
-  intro u
-  induction u with
-  | nil =>
-      intro v dm h
-      simp only [List.filterMap_nil] at h
-      exact ⟨v, Interleave.nil_left v, (Interleave.eq_of_nil_left h).symm⟩
-  | cons x u ihu =>
-      intro v
-      induction v with
-      | nil =>
-          intro dm h
-          exact ⟨x :: u, Interleave.nil_right _,
-            (Interleave.eq_of_nil_right h).symm ▸ rfl⟩
-      | cons y v ihv =>
-          intro dm h
-          rcases hx : f x with _ | b
-          · rw [List.filterMap_cons_none hx] at h
-            obtain ⟨t, ht1, ht2⟩ := ihu (y :: v) dm h
-            exact ⟨x :: t, Interleave.left ht1, by
-              rw [List.filterMap_cons_none hx]; exact ht2⟩
-          · rcases hy : f y with _ | c
-            · rw [List.filterMap_cons_none hy] at h
-              obtain ⟨t, ht1, ht2⟩ := ihv dm h
-              exact ⟨y :: t, Interleave.right ht1, by
-                rw [List.filterMap_cons_none hy]; exact ht2⟩
-            · rw [List.filterMap_cons_some hx, List.filterMap_cons_some hy] at h
-              cases h with
-              | @left _ _ _ w h' =>
-                  have h'' : Interleave (u.filterMap f) ((y :: v).filterMap f) w := by
-                    rw [List.filterMap_cons_some hy]; exact h'
-                  obtain ⟨t, ht1, ht2⟩ := ihu (y :: v) w h''
-                  exact ⟨x :: t, Interleave.left ht1, by
-                    rw [List.filterMap_cons_some hx, ht2]⟩
-              | @right _ _ _ w h' =>
-                  have h'' : Interleave ((x :: u).filterMap f) (v.filterMap f) w := by
-                    rw [List.filterMap_cons_some hx]; exact h'
-                  obtain ⟨t, ht1, ht2⟩ := ihv w h''
-                  exact ⟨y :: t, Interleave.right ht1, by
-                    rw [List.filterMap_cons_some hy, ht2]⟩
-
 /-! ### Running a winning strategy
 
     A winning strategy is a well-founded tree, so a play can be read off it by
@@ -371,8 +292,6 @@ theorem plays_append (b : Bool) (x y : List (Bool × α)) :
       · subst hc; simp only [List.cons_append, plays_cons_self, ih]
       · simp only [List.cons_append, plays_cons_other hc, ih]
 
-@[simp] theorem push_nil (h : α → Option β) : push h [] = [] := rfl
-
 theorem push_cons_none {h : α → Option β} {q : α} (hq : h q = none) (b : Bool)
     (x : List (Bool × α)) : push h ((b, q) :: x) = push h x := by
   simp only [push, List.filterMap_cons, hq, Option.map_none]
@@ -460,22 +379,6 @@ theorem eq_of_sides : ∀ (x y : List (Bool × α)), sides x = sides y →
               rw [plays_cons_other (by simp), plays_cons_other (by simp)] at h1
               injection h2 with hq h2
               rw [hq, ih y hs' h1 h2]
-
-theorem sides_tag : ∀ (p : List Bool) (u v : List α), Exact p u v → sides (tag p u v) = p := by
-  intro p
-  induction p with
-  | nil => intro u v _; rfl
-  | cons b p ih =>
-      intro u v hE
-      cases b with
-      | true =>
-          cases u with
-          | nil => exact absurd hE (by simp [Exact])
-          | cons x u => exact congrArg _ (ih u v hE)
-      | false =>
-          cases v with
-          | nil => exact absurd hE (by simp [Exact])
-          | cons y v => exact congrArg _ (ih u v hE)
 
 theorem plays_tag : ∀ (p : List Bool) (u v : List α), Exact p u v →
     plays true (tag p u v) = u ∧ plays false (tag p u v) = v := by

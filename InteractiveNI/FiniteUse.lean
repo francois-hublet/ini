@@ -52,25 +52,9 @@ theorem coalition_compositional_strat_used {S : Sec Level Channel}
     (seq_totalize dflt hpubC hseq) t₁ (produces_totalize h₁)
   exact ⟨t₂, ⟨h₂.1, consistent_of_totalize hpubC hseq h₁.2 hteq h₂.2⟩, hteq⟩
 
-/-- A component using finitely many channels uses finitely many levels -- the
-    case of any program, which is a finite object.  In particular `ℂ` finite
-    suffices, but it is not needed: infinitely many channels at finitely many
-    levels are fine. -/
-theorem usesLevels_of_chans {S : Sec Level Channel} {St : Type}
-    {step : St → Act Channel Value → St → Prop} {s : St} {cs : List Channel}
-    (h : ∀ (t : List (Lbl Channel Value)) (s' : St), Reach step s t s' →
-      ∀ x ∈ t, x.chan ∈ cs) :
-    UsesLevels S step s (cs.map S.valL) :=
-  fun t s' hr x hx => List.mem_map.mpr ⟨x.chan, h t s' hr x hx, rfl⟩
-
 theorem usesLevels_all {S : Sec Level Channel} {St : Type}
     {step : St → Act Channel Value → St → Prop} {s : St} {ls : List Level}
     (hls : ∀ l : Level, l ∈ ls) : UsesLevels S step s ls := fun _ _ _ x _ => hls _
-
-theorem usesLevels_of_finite {S : Sec Level Channel} {St : Type}
-    {step : St → Act Channel Value → St → Prop} {s : St} {cs : List Channel}
-    (h : ∀ a : Channel, a ∈ cs) : UsesLevels S step s (cs.map S.valL) :=
-  usesLevels_of_chans (fun _ _ _ x _ => h x.chan)
 
 end Sec
 

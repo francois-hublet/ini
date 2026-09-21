@@ -58,14 +58,6 @@ noncomputable def keyOf (S : Sec Level Channel) (C : Coalition Level) :
     PLbl Channel Value → Option Channel :=
   fun q => if S.coalition.le (sing (S.presL q.chan)) C then some q.chan else none
 
-/-- **Presence monotonicity along a layer.**  A label the coalition can already
-    see is visible at the level the layer exposes. -/
-def PresMono (S : Sec Level Channel) (C : Coalition Level) (n : Level) : Prop :=
-  ∀ a : Channel, S.coalition.le (sing (S.presL a)) C → S.le (S.presL a) n
-
-theorem presMono_of_pub {S : Sec Level Channel} {C : Coalition Level} {n : Level}
-    (h : PublicPresence S) : PresMono S C n := fun a _ => h a n
-
 theorem pres_sing {S : Sec Level Channel} {a : Channel} {n : Level}
     (h : S.le (S.presL a) n) : S.coalition.le (sing (S.presL a)) (sing n) := by
   intro c hc; exact ⟨n, rfl, by rw [show c = S.presL a from hc]; exact h⟩
@@ -89,20 +81,6 @@ theorem key_bind' {S : Sec Level Channel} {C : Coalition Level} {n : Level}
     rcases hq' : S.coalition.projLbl (Value := Value) (sing n) l with _ | q'
     · rfl
     · simp only [Option.bind_some, keyOf, projLbl_chan hq', if_neg hC]; rfl
-
-theorem key_bind {S : Sec Level Channel} {C : Coalition Level} {n : Level}
-    (hm : PresMono S C n) (l : Lbl Channel Value) :
-    ((S.coalition.projLbl (sing n) l).bind (keyOf S C))
-      = ((S.coalition.projLbl C l).bind (keyOf S C)) :=
-  key_bind' l (hm l.chan)
-
-/-- The key sees the same sequence of channels through either view. -/
-theorem key_proj {S : Sec Level Channel} {C : Coalition Level} {n : Level}
-    (hm : PresMono S C n) (t : List (Lbl Channel Value)) :
-    (S.coalition.proj (sing n) t).filterMap (keyOf S C)
-      = (S.coalition.proj C t).filterMap (keyOf S C) := by
-  simp only [proj, List.filterMap_filterMap]
-  exact congrArg (fun f => List.filterMap f t) (funext (key_bind hm))
 
 theorem keyOf_vis {S : Sec Level Channel} {C : Coalition Level}
     {l : Lbl Channel Value} {q : PLbl Channel Value}
@@ -585,21 +563,6 @@ theorem layerC_of_cplus {S : Sec Level Channel} {m : Level} :
   induction ns with
   | nil => intro q h; exact h
   | cons n ns ih => intro q h; exact Or.inl (ih q h)
-
-/-- Every level of a presence-monotone peeling is added at a layer that is
-    presence-monotone. -/
-theorem peelMono_mem {S : Sec Level Channel} {m : Level} {ls : List Level} :
-    ∀ (ns : List Level), PeelMono S m ls ns → ∀ n ∈ ns,
-      ∃ ns' : List Level, ∀ a : Channel, S.valL a ∈ ls →
-        S.coalition.le (sing (S.presL a)) (layerC S m ns') → S.le (S.presL a) n := by
-  intro ns
-  induction ns with
-  | nil => intro _ n hn; exact absurd hn (by simp)
-  | cons n' ns ih =>
-      intro hpm n hn
-      rcases List.mem_cons.mp hn with rfl | hn
-      · exact ⟨ns, hpm.1⟩
-      · exact ih hpm.2 n hn
 
 end Sec
 

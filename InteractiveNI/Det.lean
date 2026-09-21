@@ -1,6 +1,6 @@
 /-
   §4 — Compositionality in the deterministic case (part 1):
-  determinism lemmas, the "follow" lemma, Lemma 5 and Lemma 4 of the paper.
+  determinism lemmas, the "follow" lemma, and Lemmas 14 and 15 of the paper.
 -/
 import InteractiveNI.Shift
 
@@ -13,17 +13,6 @@ attribute [local instance] Classical.propDecidable
 
 section Det
 variable {C V St : Type} {step : St → Act C V → St → Prop}
-
-theorem det_target (hdet : Deterministic step) {s a s' s''}
-    (h1 : step s a s') (h2 : step s a s'') : s' = s'' := hdet.target h1 h2
-
-/-- From a state with an output (or τ) transition, no other transition is possible. -/
-theorem det_not_inp (hdet : Deterministic step) {s a s' s''} {b : C} {v : V}
-    (h1 : step s a s') (h2 : step s (.inp b v) s'') (hne : a ≠ .inp b v) :
-    ∃ v', a = .inp b v' := by
-  obtain ⟨c, x, y, hax, hbv⟩ := hdet.inputs h1 h2 hne
-  injection hbv with hc hv
-  exact ⟨x, by rw [hax, hc]⟩
 
 theorem det_out_first (hdet : Deterministic step) {s s' s'' : St} {α : C} {v : V}
     {a : Act C V} (h1 : step s (.out α v) s') (h2 : step s a s'') :
@@ -108,10 +97,6 @@ theorem consistent_of_cons {w : S.Strategy Value} {l : Lbl Channel Value}
     S.consistent (prependStrat [l] w) t := by
   rintro t₁ a v t₂ rfl
   exact hc (l :: t₁) a v t₂ rfl
-
-theorem consistent_head {w : S.Strategy Value} {a : Channel} {v : Value}
-    {t : List (Lbl Channel Value)} (hc : S.consistent w (.inp a v :: t)) :
-    w.ω a [] v := hc [] a v t rfl
 
 theorem consistent_append {w : S.Strategy Value} {u r : List (Lbl Channel Value)}
     (hu : S.consistent w u) (hr : S.consistent (prependStrat u w) r) :
@@ -200,10 +185,10 @@ theorem follow {St : Type} {step : St → Act Channel Value → St → Prop}
           · exact Or.inl ⟨rest, by rw [hrest, List.cons_append]⟩
           · exact Or.inr ⟨r₂, by rw [hr₂, List.cons_append], hp⟩
 
-/-! ### Lemma 5 (indistinguishable states produce indistinguishable runs) -/
+/-! ### Lemma 15 (indistinguishable states produce indistinguishable runs) -/
 
 /--
-**Lemma 5** of the paper.  If `s ⟶^t sC` and `s ⟶^{t'} sE` with `t =_ℓ t'`, then
+**Lemma 15** of the paper.  If `s ⟶^t sC` and `s ⟶^{t'} sE` with `t =_ℓ t'`, then
 any run of `sC` under `ω₁` is matched, up to ℓ-equivalence, by a run of `sE`
 under any ℓ-equivalent `ω₂`.
 -/
@@ -288,7 +273,7 @@ theorem consistent_cons_inp {w : S.Strategy Value} {a : Channel} {v : Value}
       have := hc xs b u t₂ h2
       rwa [prependStrat_apply] at this
 
-/-- **Lemma 4** of the paper: NI is preserved by a single transition. -/
+/-- **Lemma 14** of the paper: NI is preserved by a single transition. -/
 theorem deterministic_step {St : Type} {step : St → Act Channel Value → St → Prop}
     (hdet : Deterministic step) {s s' : St} {e : Act Channel Value}
     (hNI : S.StratNI step s) (hstep : step s e s') :
